@@ -1,0 +1,78 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM = 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+	//// Replace this comment with your code.
+    Not(in= instruction[15], out= insA);
+    Mux16(a= outALU, b= instruction, sel= insA, out= out0);
+    Mux(a= instruction[5], b= true, sel= insA, out= loadA);
+    ARegister(in= out0, load= loadA, out[0..14]= addressM, out=outA); //A - Registor
+    Mux(a= instruction[12], b= true, sel= insA, out= loadYFromMem);
+    Mux16(a= outA, b= inM, sel= loadYFromMem, out= y);
+    ALU(x= x, y= y, zx= instruction[11], nx= instruction[10], zy= instruction[9], ny= instruction[8], f= instruction[7], no= instruction[6], out= outM, out= outALU, zr= zr, ng= ng);
+    Mux(a= instruction[4], b= false, sel= insA, out= loadD);
+    DRegister(in= outALU, load= loadD, out= x); //D Registor
+
+    Mux(a= instruction[3], b= false, sel= insA, out= writeM);
+    DMux8Way(in= true, sel= instruction[0..2], a= NJ, b= JGT, c= JEQ, d= JGE, e= JLT, f= JNE, g= JLE, h= JMP);
+    
+    //JGT
+    Mux(a= JGT, b= false, sel= zr, out= outJGT0);
+    Mux(a= outJGT0, b= false, sel= ng, out= outJGT);
+    //JEQ
+    Mux(a= false, b= JEQ, sel= zr, out= outJEQ);
+    //JGE
+    Mux(a= JGE, b= false, sel= ng, out= outJGE0);
+    Mux(a= false, b= JGE, sel= zr, out= outJGE1);
+    Or(a= outJGE0, b= outJGE1, out= outJGE);
+    //JLT
+    Mux(a= false, b= JLT, sel= ng, out= outJLT);
+    //JNE
+    Mux(a= JNE, b= false, sel= zr, out= outJNE);
+    //JLE
+    Mux(a= false, b= JLE, sel= ng, out= outJLE0);
+    Mux(a= false, b= JLE, sel= zr, out= outJLE1);
+    Or(a= outJLE0, b= outJLE1, out= outJLE);
+
+    Or(a= outJGT, b= outJEQ, out= out01);
+    Or(a= outJGE, b= outJLT, out= out02);
+    Or(a= outJNE, b= outJLE, out= out03);
+    Or(a= out01, b= out02, out= ou000);
+    Or(a= out03, b= JMP, out= ou001);
+    Or(a= ou000, b= ou001, out= load0);
+
+    Mux(a= load0, b= false, sel= insA, out= load01);
+    Mux(a= load01, b= false, sel= NJ, out= load);
+
+    PC(in= outA, load= load, inc= true, reset= reset, out[0..14]= pc);
+}
