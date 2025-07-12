@@ -5,10 +5,11 @@
 #include<vector>
 #include<map>
 #include <stdexcept>
+#include <bitset>
 
 using namespace std;
 
-map<string, uint16_t> g_symbolTable = {
+const map<string, uint16_t> g_definedSymbolTable = {
     {"R0", 0},
     {"R1", 1},
     {"R2", 2},
@@ -34,11 +35,69 @@ map<string, uint16_t> g_symbolTable = {
     {"THAT", 4}
 };
 
+const map<string, string> g_comp0Table = {
+    {"0",   "101010"},
+    {"1",   "111111"},
+    {"-1",  "111010"},
+    {"D",   "001100"},
+    {"A",   "110000"},
+    {"!D",  "001101"},
+    {"!A",  "110001"},
+    {"-D",  "001111"},
+    {"-A",  "110011"},
+    {"D+1", "011111"},
+    {"A+1", "110111"},
+    {"D-1", "001110"},
+    {"A-1", "110010"},
+    {"D+A", "000010"},
+    {"D-A", "010011"},
+    {"A-D", "000111"},
+    {"D&A", "000000"},
+    {"D|A", "010101"}
+};
+
+const map<string, string> g_comp1Table = {
+    {"M",   "110000"},
+    {"!M",  "110001"},
+    {"-M",  "110011"},
+    {"M+1", "110111"},
+    {"M-1", "110010"},
+    {"D+M", "000010"},
+    {"D-M", "010011"},
+    {"M-D", "000111"},
+    {"D&M", "000000"},
+    {"D|M", "010101"}
+};
+
+const map<string, string> g_destTable = {
+    {"null",    "000"},
+    {"M",       "001"},
+    {"D",       "010"},
+    {"DM",      "011"},
+    {"MD",      "011"},
+    {"A",       "100"},
+    {"AM",      "101"},
+    {"AD",      "110"},
+    {"ADM",     "111"}
+};
+
+const map<string, string> g_jumpTable = {
+    {"null",    "000"},
+    {"JGT",     "001"},
+    {"JEQ",     "010"},
+    {"JGE",     "011"},
+    {"JLT",     "100"},
+    {"JNE",     "101"},
+    {"JLE",     "110"},
+    {"JMP",     "111"}
+};
+
 enum InstructionType {
     A_INSTRUCTION,
     C_INSTRUCTION,
     L_INSTRUCTION
 };
+
 
 class Instruction{
 private:
@@ -48,28 +107,38 @@ private:
     string _comp;
     string _jump;
 public:
-    Instruction(string& hackInstruction){
-        if(hackInstruction.length() < 2){
+    Instruction(string& line){
+        if(line.length() < 2){
             throw std::runtime_error("Invalid instruction length");
         }
-        if(hackInstruction[0] == '@'){
+        if(line[0] == '@'){
             _insType = InstructionType::A_INSTRUCTION;
-            _symbol = hackInstruction.substr(1, hackInstruction.length() - 1);
+            _symbol = line.substr(1, line.length() - 1);
             cout << endl;
-        }else if(hackInstruction.length() > 2 && hackInstruction[0] == '(' && hackInstruction[hackInstruction.length() - 2] == ')'){
+        }else if(line.length() > 2 && line[0] == '(' && line[line.length() - 1] == ')'){
             _insType = InstructionType::L_INSTRUCTION;
-            _symbol = hackInstruction.substr(1, hackInstruction.length() - 2);
+            _symbol = line.substr(1, line.length() - 2);
             cout << endl;
         }else{
             _insType = InstructionType::C_INSTRUCTION;
-            _dest = hackInstruction.substr(0, 1);
-            size_t pos = hackInstruction.find(';');
+            size_t pos = line.find(';');
+            size_t posEqual = line.find('=');
+            if(posEqual != std::string::npos){
+                _dest = line.substr(0, posEqual);  
+            }
+
             if (pos != std::string::npos) {
-                _comp = hackInstruction.substr(2, pos - 2);
-                _jump = hackInstruction.substr(pos + 1, hackInstruction.length() - pos - 1);
+                if(posEqual != std::string::npos){
+                    _comp = line.substr(2, pos - 2);
+                }else{
+                    _comp = line.substr(0, pos);
+                }
+                _jump = line.substr(pos + 1, line.length() - pos - 1);
                 cout << endl;
             }else{
-                _comp = hackInstruction.substr(2, pos - 2);
+                if(posEqual != std::string::npos){
+                    _comp = line.substr(posEqual + 1, line.length() - posEqual);
+                }
                 cout << endl;
             }
         }
@@ -96,7 +165,90 @@ public:
     }
 };
 
-uint32_t g_symbolTableIndex = 16;
+class HackCInstruction : public Instruction{
+public:
+    string dest(){
+        return g_destTable.find(Instruction::dest())->second;
+    }
+
+    string comp(int a){
+        return a == 0 ? g_comp0Table.find(Instruction::comp())->second : g_comp1Table.find(Instruction::comp())->second;
+    }
+
+    string jump(){
+        return g_jumpTable.find(Instruction::jump())->second;
+    }
+};
+
+
+class SymbolTable {
+private:
+    map<string, int> table;
+    static uint32_t nextAddress;
+    SymbolTable() {}
+    SymbolTable(const SymbolTable&) = delete;
+    SymbolTable& operator=(const SymbolTable&) = delete;
+public:
+    static SymbolTable& getInstance() {
+        static SymbolTable instance;
+        return instance;
+    }
+
+    void addEntry(const string& symbol) {
+        if(g_definedSymbolTable.find(symbol) != g_definedSymbolTable.end()){
+            std::cerr << "The symbol \"" << symbol <<"\" is the defined symbol" << endl;
+            return;
+        }
+
+        if(table.find(symbol) == table.end()){
+            table[symbol] = nextAddress;
+            ++nextAddress;
+        }else{
+            std::cerr << "The symbol \"" << symbol <<"\" existed in the symbol table" << endl;
+        }
+    }
+
+    void addEntry(const string& symbol, int address) {
+        if(g_definedSymbolTable.find(symbol) != g_definedSymbolTable.end()){
+            std::cerr << "The symbol \"" << symbol <<"\" is the defined symbol" << endl;
+            return;
+        }
+
+        if(table.find(symbol) == table.end()){
+            table[symbol] = address;
+        }else{
+            std::cerr << "The symbol \"" << symbol <<"\" existed in the symbol table" << endl;
+        }
+    }
+
+    bool contains(const string& symbol) {
+        if(g_definedSymbolTable.find(symbol) != g_definedSymbolTable.end()){
+            return true;
+        }
+
+        if(table.find(symbol) != table.end()){
+            return true;
+        }
+
+        return false;
+    }
+
+    int getAddress(const string& symbol) {
+        auto itr = g_definedSymbolTable.find(symbol);
+        if(itr != g_definedSymbolTable.end()){
+            return itr->second;
+        }
+        
+        auto it = table.find(symbol);
+        if (it != table.end()) {
+            return it->second;
+        }
+
+        return -1;
+    }
+};
+
+uint32_t SymbolTable::nextAddress = 16;
 vector<pair<int, Instruction>> g_Instructions;
 
 string removeWhiteSpaceAndComment(string& line){
@@ -106,7 +258,7 @@ string removeWhiteSpaceAndComment(string& line){
             break;
         }
 
-        if(!isspace(i)){
+        if(!isspace(line[i])){
             result.push_back(line[i]);
         }
     }
@@ -121,7 +273,7 @@ int main(int argc, char *argv[]){
     }
 
     ifstream inputFile(argv[1]);
-    ifstream outputFile(argv[2]);
+    ofstream outputFile(argv[2]);
     if(!inputFile.is_open()){
         std::cerr << "Error opening input file: " << argv[1] << endl;
         return -1;
@@ -136,7 +288,74 @@ int main(int argc, char *argv[]){
         }
         ++originLine;
     }
+    
+    inputFile.close();
 
-    --originLine;
+    int currentAddress = -1;
+    for(auto& [line , currentInst] : g_Instructions){
+        if(currentInst.instructionType() == InstructionType::A_INSTRUCTION){
+            ++currentAddress;
+        }else if(currentInst.instructionType() == InstructionType::L_INSTRUCTION){
+            if(SymbolTable::getInstance().contains(currentInst.symbol()) == false){
+                SymbolTable::getInstance().addEntry(currentInst.symbol(), currentAddress + 1);
+            }
+        } else if(currentInst.instructionType() == InstructionType::C_INSTRUCTION){
+            ++currentAddress;
+        }
+    }
+
+    vector<string> binaryInstructions;
+    for(auto& [line , currentInst] : g_Instructions){
+        string outLine;
+        if(currentInst.instructionType() == InstructionType::A_INSTRUCTION){
+            outLine.push_back('0');
+            int addressValue = 0;
+            try {
+                addressValue = std::stoi(currentInst.symbol());
+            } catch (const std::invalid_argument& e) {
+                std::cout << "Invalid value for A instruction " << e.what() << std::endl;
+                if(!SymbolTable::getInstance().contains(currentInst.symbol())){
+                    SymbolTable::getInstance().addEntry(currentInst.symbol());
+                }
+                addressValue = SymbolTable::getInstance().getAddress(currentInst.symbol());
+            }
+            std::string binaryStr = std::bitset<15>(addressValue).to_string();
+            outLine+= binaryStr;
+            binaryInstructions.push_back(outLine);
+        }else if(currentInst.instructionType() == InstructionType::C_INSTRUCTION){
+            outLine+= "111";
+            auto itr = g_comp0Table.find(currentInst.comp());
+            if(itr != g_comp0Table.end()){
+                outLine.push_back('0');
+            }else{
+                itr = g_comp1Table.find(currentInst.comp());
+                outLine.push_back('1');
+            }
+            outLine+= itr->second;
+
+            if(currentInst.dest().length()){
+                outLine+= g_destTable.find(currentInst.dest())->second;
+            }else{
+                outLine+= g_destTable.find("null")->second;
+            }
+            
+            if(currentInst.jump().length()){
+                outLine+= g_jumpTable.find(currentInst.jump())->second;
+            }else{
+                outLine+= g_jumpTable.find("null")->second;
+            }
+            binaryInstructions.push_back(outLine);
+        }
+    }
+
+    for (size_t i = 0; i < binaryInstructions.size(); ++i) {
+        string line = binaryInstructions[i];
+        outputFile << binaryInstructions[i];
+        if (i != binaryInstructions.size() - 1) {
+            outputFile << endl;
+        }
+    }
+    outputFile.close();
+
     return 0;
 }
