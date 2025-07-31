@@ -32,7 +32,15 @@ const map<string, VM_COMMAND_TYPE> g_commands= {
     {"lt",  VM_COMMAND_TYPE::C_ARITHMETIC},
     {"and", VM_COMMAND_TYPE::C_ARITHMETIC},
     {"or",  VM_COMMAND_TYPE::C_ARITHMETIC},
-    {"not", VM_COMMAND_TYPE::C_ARITHMETIC}
+    {"not", VM_COMMAND_TYPE::C_ARITHMETIC},
+
+    {"goto", VM_COMMAND_TYPE::C_GOTO},
+    {"if-goto", VM_COMMAND_TYPE::C_IF},
+    {"label", VM_COMMAND_TYPE::C_LABEL},
+    {"call", VM_COMMAND_TYPE::C_CALL},
+    {"function", VM_COMMAND_TYPE::C_FUNCTION},
+    {"return", VM_COMMAND_TYPE::C_RETURN}
+
 };
 
 class Parser

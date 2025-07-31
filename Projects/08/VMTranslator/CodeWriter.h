@@ -70,5 +70,10 @@ public:
     void setFileName(const string& fileName);
     void writeArithmetic(const string& command);
     void writePushPop(VM_COMMAND_TYPE commandType, const string& segment, int index);
+    void writeLabel(const string& label) ;
+    void writeGoto(const string& label);
+    void writeIf(const string& label);
+    void writeFuncion(const string& functionName, int nArgs);
+    void writeReturn();
     void close();
 };

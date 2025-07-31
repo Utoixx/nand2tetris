@@ -8,6 +8,14 @@ CodeWriter::CodeWriter(const string& outPutFile , const string& inputVMFilleName
     if (!outFileStream.is_open()) {
         cerr << "Failed to open output file: " << outPutFile << endl;
     }
+
+    vector<string> asmLines;
+    asmLines.push_back("@256");
+    asmLines.push_back("D=A");
+    asmLines.push_back("@0");
+    asmLines.push_back("M=D");
+
+    writeLines(asmLines);
 }
 
 CodeWriter::~CodeWriter() {
@@ -207,7 +215,11 @@ void CodeWriter::writePush(VM_SEGMENT_TYPE segmentType, int index){
         break;
     }
 
-    if(segmentType == VM_SEGMENT_TYPE::LOCAL || segmentType == VM_SEGMENT_TYPE::ARGUMENT || segmentType == VM_SEGMENT_TYPE::THIS || segmentType == VM_SEGMENT_TYPE::THAT){
+    if(segmentType == VM_SEGMENT_TYPE::LOCAL || 
+        segmentType == VM_SEGMENT_TYPE::ARGUMENT || 
+        segmentType == VM_SEGMENT_TYPE::THIS || 
+        segmentType == VM_SEGMENT_TYPE::THAT
+    ){
         asmLines.push_back("D=M");
         asmLines.push_back("@" + std::to_string(index));
         asmLines.push_back("D=D+A");
@@ -283,7 +295,11 @@ void CodeWriter::writePop(VM_SEGMENT_TYPE segmentType, int index){
     }
 
     
-    if(segmentType == VM_SEGMENT_TYPE::LOCAL || segmentType == VM_SEGMENT_TYPE::ARGUMENT || segmentType == VM_SEGMENT_TYPE::THIS || segmentType == VM_SEGMENT_TYPE::THAT){
+    if(segmentType == VM_SEGMENT_TYPE::LOCAL || 
+        segmentType == VM_SEGMENT_TYPE::ARGUMENT || 
+        segmentType == VM_SEGMENT_TYPE::THIS || 
+        segmentType == VM_SEGMENT_TYPE::THAT
+    ){
         asmLines.push_back("@" + std::to_string(index));
         asmLines.push_back("D=D+A");
     }
@@ -316,6 +332,46 @@ void CodeWriter::writePushPop(VM_COMMAND_TYPE commandType, const string& segment
     }else{
         writePop((VM_SEGMENT_TYPE) segmentType, index);
     }
+}
+
+void CodeWriter::writeLabel(const string& label){
+    vector<string> asmLines;
+    asmLines.push_back("(" + label + ")");
+    writeLines(asmLines);
+}
+
+void CodeWriter::writeGoto(const string& label){
+    vector<string> asmLines;
+    asmLines.push_back("@" + label);
+    asmLines.push_back("0;JMP");
+    writeLines(asmLines);
+}
+
+
+void CodeWriter::writeIf(const string& label){
+    vector<string> asmLines;
+    asmLines.push_back("@SP");
+    asmLines.push_back("M=M-1");
+    asmLines.push_back("A=M");
+    asmLines.push_back("D=M");
+    asmLines.push_back("@" + label);
+    asmLines.push_back("D;JNE");
+    
+    writeLines(asmLines);
+}
+
+void CodeWriter::writeFuncion(const string& functionName, int nArgs){
+    vector<string> asmLines;
+    //Todo
+    
+    writeLines(asmLines);
+}
+
+void CodeWriter::writeReturn(){
+    vector<string> asmLines;
+    //Todo
+    
+    writeLines(asmLines);
 }
 
 void CodeWriter::close() {

@@ -4,6 +4,19 @@
 #include <cstddef>
 #include <sstream>
 
+Parser::Parser(const string& inputFile) {
+    inFileStream.open(inputFile);
+    if (!inFileStream.is_open()) {
+        cerr << "Failed to open input file: " << inputFile << endl;
+    }
+}
+
+Parser::~Parser() {
+    if (inFileStream.is_open()) {
+        inFileStream.close();
+    }
+}
+
 string Parser::removeComment(string& line){
     string result;
     for(int i = 0; i < line.length(); ++i){
@@ -26,19 +39,6 @@ string Parser::getWord(size_t n) const {
         }
     }
     return word;
-}
-
-Parser::Parser(const string& inputFile) {
-    inFileStream.open(inputFile);
-    if (!inFileStream.is_open()) {
-        cerr << "Failed to open input file: " << inputFile << endl;
-    }
-}
-
-Parser::~Parser() {
-    if (inFileStream.is_open()) {
-        inFileStream.close();
-    }
 }
 
 bool Parser::hasMoreCommands() {
@@ -72,11 +72,17 @@ void Parser::advance() {
         currentArg1 = getWord(1);
     }
 
-    if(currentCommandType == VM_COMMAND_TYPE::C_PUSH || currentCommandType == VM_COMMAND_TYPE::C_POP){
+    if(currentCommandType == VM_COMMAND_TYPE::C_PUSH || 
+        currentCommandType == VM_COMMAND_TYPE::C_POP || 
+        currentCommandType == VM_COMMAND_TYPE::C_FUNCTION || 
+        currentCommandType == VM_COMMAND_TYPE::C_CALL
+    ){
         currentArg2 = std::stoi(getWord(2));
     }else{
         currentArg2 = -1;
     }
+
+    
 }
 
 VM_COMMAND_TYPE Parser::commandType() {
